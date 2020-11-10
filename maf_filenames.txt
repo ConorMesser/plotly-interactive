@@ -1,3 +1,0 @@
-~/Documents/Data/plotly/RP-1886_CM53575_v1_Exome_OnPrem_pair.validated.maf.txt
-~/Documents/Data/plotly/RP-1886_CM66515_v1_Exome_OnPrem_pair.validated.maf.txt
-~/Documents/Data/plotly/RP-1886_CM68786_v1_Exome_OnPrem_pair.validated.maf.txt
