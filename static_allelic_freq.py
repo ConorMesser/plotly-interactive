@@ -10,6 +10,7 @@ def get_static_plot():
     # params
     jitter = 0.3
     line_length = 0.8
+    workspace = 'broad-firecloud-ibmwatson/Getz_Ebert_IBM_13-583_Exomes_Analysis'
 
     # get list of maf files
     maf_list_filename = input("Filename for list of maf files: ")  # can be either local files or from google cloud urls
@@ -26,7 +27,6 @@ def get_static_plot():
 
     try:
         # get purity values from Terra
-        workspace = 'broad-firecloud-ibmwatson/Getz_Ebert_IBM_13-583_Exomes_Analysis_Cohort2'
         wm = dalmatian.WorkspaceManager(workspace)
         pairs = wm.get_pairs()
         purities = pairs.loc[[key + '_pair' for key in maf_keys], 'wxs_purity']
@@ -142,3 +142,22 @@ def get_static_plot():
     )
 
     return fig, samples, gnomad_min, gnomad_max, gnomad_freq
+
+
+def get_filenames(workspace, output_file='maf_filenames.txt'):
+    # Import Workspace from Firecloud
+    wm = dalmatian.WorkspaceManager(workspace)
+    pairs = wm.get_pairs()
+    # pairs = wm.get_pairs_in_pair_set('DESIRED_PAIR_SET')
+
+    pairs = pairs[pairs['mutation_validator_validated_maf'].notnull()]
+
+    ###################
+    # Perform Filtering
+
+    ###################
+
+    desired_files = pairs['mutation_validator_validated_maf'].tolist()
+
+    with open(output_file, 'w') as o_file:
+        o_file.writelines(f'{f_name}\n' for f_name in desired_files)
