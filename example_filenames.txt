@@ -1,0 +1,3 @@
+gs://YOUR_BUCKET/CGA_Production_Analysis_Workflow/335bf7bd/call-mutation_validator/PARTICIPANT1_v3_Exome_OnPrem_pair.validated.maf
+gs://YOUR_BUCKET/CGA_Production_Analysis_Workflow/335bf7bd/call-mutation_validator/PARTICIPANT2_v3_Exome_OnPrem_pair.validated.maf
+/Users/USER/Documents/PARTICIPANT3_v3_Exome_OnPrem_pair.validated.maf
