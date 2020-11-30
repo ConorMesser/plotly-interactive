@@ -1,4 +1,6 @@
 import pandas as pd
+from pandas.errors import ParserError
+from gcsfs.utils import HttpError
 import numpy as np
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
@@ -12,17 +14,43 @@ def get_static_plot():
     line_length = 0.8
     workspace = 'broad-firecloud-ibmwatson/Getz_Ebert_IBM_13-583_Exomes_Analysis'
 
-    # get list of maf files
+    # variables
+    column_names = dict(sample_barcode='Tumor_Sample_Barcode',
+                        hugo='Hugo_Symbol',
+                        tumor_freq='tumor_f',
+                        gnomad_freq='gnomADg_AF',
+                        variant_class='Variant_Classification')
+
+    # get list of maf files, checking for errors
     maf_list_filename = input("Filename for list of maf files: ")  # can be either local files or from google cloud urls
     maf_files = []
+    maf_filenames_errors = []
     with open(maf_list_filename) as file:
         filename_reader = csv.reader(file)
         for row in filename_reader:
-            this_maf = pd.read_csv(row[0], sep='\t')
-            maf_files.append(this_maf)
+            e_flag = True
+            try:
+                this_maf = pd.read_csv(row[0], sep='\t')
+                for var in column_names.values():
+                    if var not in this_maf:
+                        raise ValueError(f"{var} column not found in {row[0]} maf file. Maf will be skipped.\n"
+                                         f"If files skipped repeatedly, check variable names.\n")
+            except (HttpError, FileNotFoundError) as e:
+                print(f"This {row[0]} maf file doesn't exist, giving error:\n{e}\nContinuing on remaining files.\n")
+            except ParserError as e:
+                print(f"Error while parsing {row[0]} maf file, giving error {e}\nContinuing on remaining files.\n")
+            except ValueError as e:
+                print(e)
+            else:
+                maf_files.append(this_maf)
+                e_flag = False
+            if e_flag:
+                maf_filenames_errors.append(row[0])  # collect all the failed files
+        if not maf_files:  # maf files list is empty
+            raise ValueError(f"No valid input files. Check your {maf_list_filename} file list for errors.")
 
     # combine samples/patients into single dataframe
-    maf_keys = [df['Tumor_Sample_Barcode'][0] for df in maf_files]
+    maf_keys = [df[column_names.get('sample_barcode')][0] for df in maf_files]
     samples = pd.concat(maf_files, keys=maf_keys)
 
     try:
@@ -53,11 +81,8 @@ def get_static_plot():
     x_cat = [int(level) + (np.random.random() - 0.5) * jitter for level in x_vals]
     samples['x_jitter'] = x_cat
 
-    # select variables to plot
-    gnomad_freq = 'gnomADg_AF'
-
     # clean up multiple frequencies (take first value)
-    samples[gnomad_freq] = samples[gnomad_freq].apply(lambda x: float(x.split(',')[0] if type(x) == str else x))
+    samples[column_names.get('gnomad_freq')] = samples[column_names.get('gnomad_freq')].apply(lambda x: float(x.split(',')[0] if type(x) == str else x))
 
     fig = make_subplots(rows=2, cols=1,
                         row_heights=[0.1, 0.9],
@@ -66,16 +91,16 @@ def get_static_plot():
                                [{"type": "scatter"}]])
 
     # add Scatter plot of sample data
-    gnomad_min = samples[gnomad_freq].min()
-    gnomad_max = samples[gnomad_freq].max()
+    gnomad_min = samples[column_names.get('gnomad_freq')].min()
+    gnomad_max = samples[column_names.get('gnomad_freq')].max()
     fig.add_trace(go.Scatter(visible=True,
-                             y=samples['tumor_f'], x=samples['x_jitter'],
-                             marker_color=samples[gnomad_freq], mode='markers',
+                             y=samples[column_names.get('tumor_freq')], x=samples['x_jitter'],
+                             marker_color=samples[column_names.get('gnomad_freq')], mode='markers',
                              marker_reversescale=True,
                              # marker_showscale=True,
                              marker_cmin=gnomad_min,
                              marker_cmax=gnomad_max,
-                             customdata=np.stack((samples['Hugo_Symbol'].tolist(),
+                             customdata=np.stack((samples[column_names.get('hugo')].tolist(),
                                                   samples['Protein_Change'].tolist(),
                                                   samples['t_ref_count'].values + samples['t_alt_count'].values),
                                                  axis=-1),
@@ -141,7 +166,7 @@ def get_static_plot():
         )
     )
 
-    return fig, samples, gnomad_min, gnomad_max, gnomad_freq
+    return fig, samples, gnomad_min, gnomad_max, column_names
 
 
 def get_filenames(workspace, output_file='maf_filenames.txt'):
