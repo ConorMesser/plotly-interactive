@@ -4,15 +4,13 @@ from gcsfs.utils import HttpError
 import numpy as np
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
-import csv
 import dalmatian
 
 
-def get_static_plot():
+def get_static_plot(maf_list, workspace):
     # params
     jitter = 0.3
     line_length = 0.8
-    workspace = 'broad-firecloud-ibmwatson/Getz_Ebert_IBM_13-583_Exomes_Analysis'
 
     # variables
     column_names = dict(sample_barcode='Tumor_Sample_Barcode',
@@ -22,33 +20,29 @@ def get_static_plot():
                         variant_class='Variant_Classification',
                         purity='wxs_purity')
 
-    # get list of maf files, checking for errors
-    maf_list_filename = input("Filename for list of maf files: ")  # can be either local files or from google cloud urls
+    # get list of maf dataframes, checking for errors
     maf_files = []
     maf_filenames_errors = []
-    with open(maf_list_filename) as file:
-        filename_reader = csv.reader(file)
-        for row in filename_reader:
-            e_flag = True
-            try:
-                this_maf = pd.read_csv(row[0], sep='\t')
-                for var in column_names.values():
-                    if var not in this_maf:
-                        raise ValueError(f"{var} column not found in {row[0]} maf file. Maf will be skipped.\n"
-                                         f"If files skipped repeatedly, check variable names.\n")
-            except (HttpError, FileNotFoundError) as e:
-                print(f"This {row[0]} maf file doesn't exist, giving error:\n{e}\nContinuing on remaining files.\n")
-            except ParserError as e:
-                print(f"Error while parsing {row[0]} maf file, giving error {e}\nContinuing on remaining files.\n")
-            except ValueError as e:
-                print(e)
-            else:
-                maf_files.append(this_maf)
-                e_flag = False
-            if e_flag:
-                maf_filenames_errors.append(row[0])  # collect all the failed files
-        if not maf_files:  # maf files list is empty
-            raise ValueError(f"No valid input files. Check your {maf_list_filename} file list for errors.")
+
+    for file in maf_list:
+        e_flag = True
+        try:
+            this_maf = pd.read_csv(file, sep='\t')  # able to read in gcloud url or local file
+            for var in column_names.values():
+                if var not in this_maf:
+                    raise ValueError(f"{var} column not found in {file}. Maf will be skipped.\n"
+                                     f"If files skipped repeatedly, check variable names.\n")
+        except (HttpError, FileNotFoundError) as e:
+            print(f"This file: {file} doesn't exist, giving error:\n{e}\nContinuing on remaining files.\n")
+        except ParserError as e:
+            print(f"Error while parsing {file}, giving error {e}\nContinuing on remaining files.\n")
+        except ValueError as e:
+            print(e)
+        else:
+            maf_files.append(this_maf)
+            e_flag = False
+        if e_flag:
+            maf_filenames_errors.append(file)  # collect all the failed files
 
     # combine samples/patients into single dataframe
     maf_keys = [df[column_names.get('sample_barcode')][0] for df in maf_files]
