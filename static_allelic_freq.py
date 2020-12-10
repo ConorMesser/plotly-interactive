@@ -7,18 +7,14 @@ from plotly.subplots import make_subplots
 import dalmatian
 
 
-def get_static_plot(maf_list, workspace):
+def get_static_plot(maf_list, workspace,
+                    column_names, purity_column,
+                    jitter=None, line_length=None):
     # params
-    jitter = 0.3
-    line_length = 0.8
-
-    # variables
-    column_names = dict(sample_barcode='Tumor_Sample_Barcode',
-                        hugo='Hugo_Symbol',
-                        tumor_freq='tumor_f',
-                        gnomad_freq='gnomADg_AF',
-                        variant_class='Variant_Classification',
-                        purity='wxs_purity')
+    if not jitter:
+        jitter = 0.3
+    if not line_length:
+        line_length = 0.8
 
     # get list of maf dataframes, checking for errors
     maf_files = []
@@ -51,7 +47,7 @@ def get_static_plot(maf_list, workspace):
     # get purity values from Terra
     wm = dalmatian.WorkspaceManager(workspace)
     pairs = wm.get_pairs()
-    purities = pairs.loc[[key + '_pair' for key in maf_keys], column_names['purity']]
+    purities = pairs.loc[[key + '_pair' for key in maf_keys], purity_column]
     half_purity = purities.apply(lambda x: float(x) / 2)
     half_purity.index = [maf_key[:-5] for maf_key in half_purity.index]
 
@@ -155,7 +151,7 @@ def get_static_plot(maf_list, workspace):
         )
     )
 
-    return fig, samples, gnomad_min, gnomad_max, column_names
+    return fig, samples, gnomad_min, gnomad_max
 
 
 def get_filenames(workspace, output_file='maf_filenames.txt'):
