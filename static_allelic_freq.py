@@ -19,7 +19,8 @@ def get_static_plot():
                         hugo='Hugo_Symbol',
                         tumor_freq='tumor_f',
                         gnomad_freq='gnomADg_AF',
-                        variant_class='Variant_Classification')
+                        variant_class='Variant_Classification',
+                        purity='wxs_purity')
 
     # get list of maf files, checking for errors
     maf_list_filename = input("Filename for list of maf files: ")  # can be either local files or from google cloud urls
@@ -53,18 +54,12 @@ def get_static_plot():
     maf_keys = [df[column_names.get('sample_barcode')][0] for df in maf_files]
     samples = pd.concat(maf_files, keys=maf_keys)
 
-    try:
-        # get purity values from Terra
-        wm = dalmatian.WorkspaceManager(workspace)
-        pairs = wm.get_pairs()
-        purities = pairs.loc[[key + '_pair' for key in maf_keys], 'wxs_purity']
-        half_purity = purities.apply(lambda x: float(x) / 2)
-        half_purity.index = [maf_key[:-5] for maf_key in half_purity.index]
-    except Exception as e:
-        print(e)
-        purities = input("\nPurity call failed.\nEnter purity values for each sample (separated by commas): ")
-        purities = purities.split(', ')
-        half_purity = pd.Series(maf_keys, [float(x) / 2 for x in purities])
+    # get purity values from Terra
+    wm = dalmatian.WorkspaceManager(workspace)
+    pairs = wm.get_pairs()
+    purities = pairs.loc[[key + '_pair' for key in maf_keys], column_names['purity']]
+    half_purity = purities.apply(lambda x: float(x) / 2)
+    half_purity.index = [maf_key[:-5] for maf_key in half_purity.index]
 
     # sort samples df by purity
     full_pur_list = [half_purity[s[0]] for s in samples.index]
